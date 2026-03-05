@@ -77,7 +77,7 @@ HCSR04_Status_t HCSR04_CalculateResultInteger(HCSR04_t *hcsr04, uint16_t *Result
 	if(*Result < 2){
 		*Result = 2;
 	}
-	// HCSR04 measurement range according to the manufacturer: 2–400 cm
+	// HCSR04 measurement range according to the manufacturer: 2–400 cm, in real life it works well up to 200cm
 
 	return HCSR04_OK;
 }
