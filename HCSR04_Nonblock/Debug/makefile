@@ -60,8 +60,8 @@ all: main-build
 main-build: HCSR04_Nonblock.elf secondary-outputs
 
 # Tool invocations
-HCSR04_Nonblock.elf HCSR04_Nonblock.map: $(OBJS) $(USER_OBJS) C:\Users\norbe\OneDrive\Pulpit\STM\Projects\HCSR04_Nonblock\STM32G474RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "HCSR04_Nonblock.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\norbe\OneDrive\Pulpit\STM\Projects\HCSR04_Nonblock\STM32G474RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="HCSR04_Nonblock.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+HCSR04_Nonblock.elf HCSR04_Nonblock.map: $(OBJS) $(USER_OBJS) C:\Users\norbe\git\HC-SR04-Sensor-Autonomous-Measurement\HCSR04_Nonblock\STM32G474RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "HCSR04_Nonblock.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\norbe\git\HC-SR04-Sensor-Autonomous-Measurement\HCSR04_Nonblock\STM32G474RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="HCSR04_Nonblock.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

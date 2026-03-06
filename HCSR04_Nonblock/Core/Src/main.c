@@ -144,7 +144,7 @@ int main(void)
        * Read distance measured by the sensor
        * result stored in Distance_f (cm)
        */
-	  HCSR04_GetDistanceFloat(&HCSR04, &Distance_f);
+	  HCSR04_CalculateResultFloat(&HCSR04, &Distance_f);
 
       /*
        * Small delay between measurements

@@ -39,13 +39,13 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  17 .debug_line   0001394d  00000000  00000000  00043659  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000f8272  00000000  00000000  00056fa6  2**0
+ 18 .debug_str    000f82c5  00000000  00000000  00056fa6  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  0014f218  2**0
+ 19 .comment      00000043  00000000  00000000  0014f26b  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  000043f8  00000000  00000000  0014f25c  2**2
+ 20 .debug_frame  000043f8  00000000  00000000  0014f2b0  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000006b  00000000  00000000  00153654  2**0
+ 21 .debug_line_str 0000006b  00000000  00000000  001536a8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -460,10 +460,17 @@ Disassembly of section .text:
  800061c:	48000800 	.word	0x48000800
 
 08000620 <HCSR04_InterruptHandler>:
+#define HCSR04_CALCULATION_CONST  ((float)0.01715)
+
+// Interrupt handler function for the HCSR04 sensor
+// Echo time is calculated based on the difference between two captured timestamps
+// Echo measurement is performed using two timer channels
+void HCSR04_InterruptHandler(HCSR04_t *hcsr04){
  8000620:	b480      	push	{r7}
  8000622:	b083      	sub	sp, #12
  8000624:	af00      	add	r7, sp, #0
  8000626:	6078      	str	r0, [r7, #4]
+	hcsr04->Result_us = __HAL_TIM_GET_COMPARE(hcsr04->htim_echo, hcsr04->EchoTimChannelStop) - __HAL_TIM_GET_COMPARE(hcsr04->htim_echo, hcsr04->EchoTimChannelStart);
  8000628:	687b      	ldr	r3, [r7, #4]
  800062a:	691b      	ldr	r3, [r3, #16]
  800062c:	2b00      	cmp	r3, #0
@@ -578,6 +585,7 @@ Disassembly of section .text:
  8000706:	b29a      	uxth	r2, r3
  8000708:	687b      	ldr	r3, [r7, #4]
  800070a:	829a      	strh	r2, [r3, #20]
+}
  800070c:	bf00      	nop
  800070e:	370c      	adds	r7, #12
  8000710:	46bd      	mov	sp, r7
@@ -585,6 +593,9 @@ Disassembly of section .text:
  8000716:	4770      	bx	lr
 
 08000718 <HCSR04_Init>:
+
+
+HCSR04_Status_t HCSR04_Init(HCSR04_t *hcsr04, TIM_HandleTypeDef *timer_trigger, uint32_t TriggerTimChannel, TIM_HandleTypeDef *timer_echo, uint32_t EchoTimChannelStart, uint32_t EchoTimChannelStop){
  8000718:	b580      	push	{r7, lr}
  800071a:	b084      	sub	sp, #16
  800071c:	af00      	add	r7, sp, #0
@@ -592,25 +603,38 @@ Disassembly of section .text:
  8000720:	60b9      	str	r1, [r7, #8]
  8000722:	607a      	str	r2, [r7, #4]
  8000724:	603b      	str	r3, [r7, #0]
+
+	// Initialize timer pointers
+	hcsr04->htim_trigger = timer_trigger;
  8000726:	68fb      	ldr	r3, [r7, #12]
  8000728:	68ba      	ldr	r2, [r7, #8]
  800072a:	605a      	str	r2, [r3, #4]
+	hcsr04->htim_echo = timer_echo;
  800072c:	68fb      	ldr	r3, [r7, #12]
  800072e:	683a      	ldr	r2, [r7, #0]
  8000730:	601a      	str	r2, [r3, #0]
+
+    // Initialize trigger and echo channels
+	hcsr04->TriggerTimChannel = TriggerTimChannel;
  8000732:	68fb      	ldr	r3, [r7, #12]
  8000734:	687a      	ldr	r2, [r7, #4]
  8000736:	609a      	str	r2, [r3, #8]
+	hcsr04->EchoTimChannelStart = EchoTimChannelStart;
  8000738:	68fb      	ldr	r3, [r7, #12]
  800073a:	69ba      	ldr	r2, [r7, #24]
  800073c:	60da      	str	r2, [r3, #12]
+	hcsr04->EchoTimChannelStop = EchoTimChannelStop;
  800073e:	68fb      	ldr	r3, [r7, #12]
  8000740:	69fa      	ldr	r2, [r7, #28]
  8000742:	611a      	str	r2, [r3, #16]
+
+	// Start the timer used for echo measurement and configure the echo channel
+	HAL_TIM_Base_Start(hcsr04->htim_echo);
  8000744:	68fb      	ldr	r3, [r7, #12]
  8000746:	681b      	ldr	r3, [r3, #0]
  8000748:	4618      	mov	r0, r3
  800074a:	f001 feb7 	bl	80024bc <HAL_TIM_Base_Start>
+	HAL_TIM_IC_Start(hcsr04->htim_echo, hcsr04->EchoTimChannelStart);
  800074e:	68fb      	ldr	r3, [r7, #12]
  8000750:	681a      	ldr	r2, [r3, #0]
  8000752:	68fb      	ldr	r3, [r7, #12]
@@ -618,6 +642,9 @@ Disassembly of section .text:
  8000756:	4619      	mov	r1, r3
  8000758:	4610      	mov	r0, r2
  800075a:	f002 f8eb 	bl	8002934 <HAL_TIM_IC_Start>
+
+	// Input capture in interrupt mode – interrupts are handled by our interrupt handler
+	HAL_TIM_IC_Start_IT(hcsr04->htim_echo, hcsr04->EchoTimChannelStop);
  800075e:	68fb      	ldr	r3, [r7, #12]
  8000760:	681a      	ldr	r2, [r3, #0]
  8000762:	68fb      	ldr	r3, [r7, #12]
@@ -625,10 +652,17 @@ Disassembly of section .text:
  8000766:	4619      	mov	r1, r3
  8000768:	4610      	mov	r0, r2
  800076a:	f002 f9e7 	bl	8002b3c <HAL_TIM_IC_Start_IT>
+
+	// Start the timer used for trigger generation (it may be the same timer as echo,
+	// so this is somewhat redundant but keeps the code universal in case another timer is used),
+	// then configure the trigger channel
+	// Start PWM generation for the trigger signal
+	HAL_TIM_Base_Start(hcsr04->htim_trigger);
  800076e:	68fb      	ldr	r3, [r7, #12]
  8000770:	685b      	ldr	r3, [r3, #4]
  8000772:	4618      	mov	r0, r3
  8000774:	f001 fea2 	bl	80024bc <HAL_TIM_Base_Start>
+	HAL_TIM_PWM_Start(hcsr04->htim_trigger, hcsr04->TriggerTimChannel);
  8000778:	68fb      	ldr	r3, [r7, #12]
  800077a:	685a      	ldr	r2, [r3, #4]
  800077c:	68fb      	ldr	r3, [r7, #12]
@@ -636,28 +670,43 @@ Disassembly of section .text:
  8000780:	4619      	mov	r1, r3
  8000782:	4610      	mov	r0, r2
  8000784:	f001 ff6c 	bl	8002660 <HAL_TIM_PWM_Start>
+
+	return HCSR04_OK;
  8000788:	2300      	movs	r3, #0
+}
  800078a:	4618      	mov	r0, r3
  800078c:	3710      	adds	r7, #16
  800078e:	46bd      	mov	sp, r7
  8000790:	bd80      	pop	{r7, pc}
 	...
 
-08000794 <HCSR04_GetDistanceFloat>:
+08000794 <HCSR04_CalculateResultFloat>:
+
+
+// Function calculating distance in centimeters (floating point)
+// Distance is calculated based on the echo time (Result_us) and the speed of sound constant
+// Result_us contains the measured echo time in microseconds
+HCSR04_Status_t HCSR04_CalculateResultFloat(HCSR04_t *hcsr04, float *Result){
  8000794:	b480      	push	{r7}
  8000796:	b083      	sub	sp, #12
  8000798:	af00      	add	r7, sp, #0
  800079a:	6078      	str	r0, [r7, #4]
  800079c:	6039      	str	r1, [r7, #0]
+
+	// Result in centimeters
+	*Result = (float)hcsr04->Result_us * HCSR04_CALCULATION_CONST;
  800079e:	687b      	ldr	r3, [r7, #4]
  80007a0:	8a9b      	ldrh	r3, [r3, #20]
  80007a2:	ee07 3a90 	vmov	s15, r3
  80007a6:	eef8 7a67 	vcvt.f32.u32	s15, s15
- 80007aa:	ed9f 7a07 	vldr	s14, [pc, #28]	@ 80007c8 <HCSR04_GetDistanceFloat+0x34>
+ 80007aa:	ed9f 7a07 	vldr	s14, [pc, #28]	@ 80007c8 <HCSR04_CalculateResultFloat+0x34>
  80007ae:	ee67 7a87 	vmul.f32	s15, s15, s14
  80007b2:	683b      	ldr	r3, [r7, #0]
  80007b4:	edc3 7a00 	vstr	s15, [r3]
+
+	return HCSR04_OK;
  80007b8:	2300      	movs	r3, #0
+}
  80007ba:	4618      	mov	r0, r3
  80007bc:	370c      	adds	r7, #12
  80007be:	46bd      	mov	sp, r7
@@ -667,14 +716,46 @@ Disassembly of section .text:
  80007c8:	3c8c7e28 	.word	0x3c8c7e28
 
 080007cc <main>:
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
  80007cc:	b580      	push	{r7, lr}
  80007ce:	b082      	sub	sp, #8
  80007d0:	af02      	add	r7, sp, #8
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
  80007d2:	f000 fad8 	bl	8000d86 <HAL_Init>
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
  80007d6:	f000 f81f 	bl	8000818 <SystemClock_Config>
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
  80007da:	f7ff feb3 	bl	8000544 <MX_GPIO_Init>
+  MX_LPUART1_UART_Init();
  80007de:	f000 fa07 	bl	8000bf0 <MX_LPUART1_UART_Init>
+  MX_TIM3_Init();
  80007e2:	f000 f8f5 	bl	80009d0 <MX_TIM3_Init>
+   * - echo timer
+   * - trigger channel
+   * - echo start channel
+   * - echo stop channel
+   */
+  HCSR04_Init(&HCSR04, &HCSR04_TRIGGER_TIMER, HCSR04_TRIGGER_CHANNEL,
  80007e6:	2304      	movs	r3, #4
  80007e8:	9301      	str	r3, [sp, #4]
  80007ea:	2300      	movs	r3, #0
@@ -684,11 +765,23 @@ Disassembly of section .text:
  80007f2:	4906      	ldr	r1, [pc, #24]	@ (800080c <main+0x40>)
  80007f4:	4806      	ldr	r0, [pc, #24]	@ (8000810 <main+0x44>)
  80007f6:	f7ff ff8f 	bl	8000718 <HCSR04_Init>
+  {
+      /*
+       * Read distance measured by the sensor
+       * result stored in Distance_f (cm)
+       */
+	  HCSR04_CalculateResultFloat(&HCSR04, &Distance_f);
  80007fa:	4906      	ldr	r1, [pc, #24]	@ (8000814 <main+0x48>)
  80007fc:	4804      	ldr	r0, [pc, #16]	@ (8000810 <main+0x44>)
- 80007fe:	f7ff ffc9 	bl	8000794 <HCSR04_GetDistanceFloat>
+ 80007fe:	f7ff ffc9 	bl	8000794 <HCSR04_CalculateResultFloat>
+
+      /*
+       * Small delay between measurements
+       */
+	  HAL_Delay(10);
  8000802:	200a      	movs	r0, #10
  8000804:	f000 fb30 	bl	8000e68 <HAL_Delay>
+	  HCSR04_CalculateResultFloat(&HCSR04, &Distance_f);
  8000808:	bf00      	nop
  800080a:	e7f6      	b.n	80007fa <main+0x2e>
  800080c:	20000044 	.word	0x20000044
@@ -696,14 +789,22 @@ Disassembly of section .text:
  8000814:	20000040 	.word	0x20000040
 
 08000818 <SystemClock_Config>:
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
  8000818:	b580      	push	{r7, lr}
  800081a:	b094      	sub	sp, #80	@ 0x50
  800081c:	af00      	add	r7, sp, #0
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
  800081e:	f107 0318 	add.w	r3, r7, #24
  8000822:	2238      	movs	r2, #56	@ 0x38
  8000824:	2100      	movs	r1, #0
  8000826:	4618      	mov	r0, r3
  8000828:	f004 fae6 	bl	8004df8 <memset>
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
  800082c:	1d3b      	adds	r3, r7, #4
  800082e:	2200      	movs	r2, #0
  8000830:	601a      	str	r2, [r3, #0]
@@ -711,45 +812,78 @@ Disassembly of section .text:
  8000834:	609a      	str	r2, [r3, #8]
  8000836:	60da      	str	r2, [r3, #12]
  8000838:	611a      	str	r2, [r3, #16]
+
+  /** Configure the main internal regulator output voltage
+  */
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST);
  800083a:	2000      	movs	r0, #0
  800083c:	f000 fe0e 	bl	800145c <HAL_PWREx_ControlVoltageScaling>
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
  8000840:	2302      	movs	r3, #2
  8000842:	61bb      	str	r3, [r7, #24]
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
  8000844:	f44f 7380 	mov.w	r3, #256	@ 0x100
  8000848:	627b      	str	r3, [r7, #36]	@ 0x24
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
  800084a:	2340      	movs	r3, #64	@ 0x40
  800084c:	62bb      	str	r3, [r7, #40]	@ 0x28
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
  800084e:	2302      	movs	r3, #2
  8000850:	637b      	str	r3, [r7, #52]	@ 0x34
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
  8000852:	2302      	movs	r3, #2
  8000854:	63bb      	str	r3, [r7, #56]	@ 0x38
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV4;
  8000856:	2304      	movs	r3, #4
  8000858:	63fb      	str	r3, [r7, #60]	@ 0x3c
+  RCC_OscInitStruct.PLL.PLLN = 85;
  800085a:	2355      	movs	r3, #85	@ 0x55
  800085c:	643b      	str	r3, [r7, #64]	@ 0x40
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
  800085e:	2302      	movs	r3, #2
  8000860:	647b      	str	r3, [r7, #68]	@ 0x44
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
  8000862:	2302      	movs	r3, #2
  8000864:	64bb      	str	r3, [r7, #72]	@ 0x48
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
  8000866:	2302      	movs	r3, #2
  8000868:	64fb      	str	r3, [r7, #76]	@ 0x4c
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
  800086a:	f107 0318 	add.w	r3, r7, #24
  800086e:	4618      	mov	r0, r3
  8000870:	f000 fea8 	bl	80015c4 <HAL_RCC_OscConfig>
  8000874:	4603      	mov	r3, r0
  8000876:	2b00      	cmp	r3, #0
  8000878:	d001      	beq.n	800087e <SystemClock_Config+0x66>
+  {
+    Error_Handler();
  800087a:	f000 f82b 	bl	80008d4 <Error_Handler>
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
  800087e:	230f      	movs	r3, #15
  8000880:	607b      	str	r3, [r7, #4]
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
  8000882:	2303      	movs	r3, #3
  8000884:	60bb      	str	r3, [r7, #8]
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
  8000886:	2300      	movs	r3, #0
  8000888:	60fb      	str	r3, [r7, #12]
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
  800088a:	2300      	movs	r3, #0
  800088c:	613b      	str	r3, [r7, #16]
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
  800088e:	2300      	movs	r3, #0
  8000890:	617b      	str	r3, [r7, #20]
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
  8000892:	1d3b      	adds	r3, r7, #4
  8000894:	2104      	movs	r1, #4
  8000896:	4618      	mov	r0, r3
@@ -757,7 +891,11 @@ Disassembly of section .text:
  800089c:	4603      	mov	r3, r0
  800089e:	2b00      	cmp	r3, #0
  80008a0:	d001      	beq.n	80008a6 <SystemClock_Config+0x8e>
+  {
+    Error_Handler();
  80008a2:	f000 f817 	bl	80008d4 <Error_Handler>
+  }
+}
  80008a6:	bf00      	nop
  80008a8:	3750      	adds	r7, #80	@ 0x50
  80008aa:	46bd      	mov	sp, r7
@@ -765,17 +903,34 @@ Disassembly of section .text:
 	...
 
 080008b0 <HAL_TIM_IC_CaptureCallback>:
+
+/* USER CODE BEGIN 4 */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
  80008b0:	b580      	push	{r7, lr}
  80008b2:	b082      	sub	sp, #8
  80008b4:	af00      	add	r7, sp, #0
  80008b6:	6078      	str	r0, [r7, #4]
+    /*
+     * Check if interrupt comes from the timer used
+     * for HC-SR04 echo measurement
+     */
+	if(htim == HCSR04.htim_echo)
  80008b8:	4b05      	ldr	r3, [pc, #20]	@ (80008d0 <HAL_TIM_IC_CaptureCallback+0x20>)
  80008ba:	681b      	ldr	r3, [r3, #0]
  80008bc:	687a      	ldr	r2, [r7, #4]
  80008be:	429a      	cmp	r2, r3
  80008c0:	d102      	bne.n	80008c8 <HAL_TIM_IC_CaptureCallback+0x18>
+	{
+        /*
+         * Call the sensor interrupt handler
+         * which calculates echo pulse duration
+         */
+		HCSR04_InterruptHandler(&HCSR04);
  80008c2:	4803      	ldr	r0, [pc, #12]	@ (80008d0 <HAL_TIM_IC_CaptureCallback+0x20>)
  80008c4:	f7ff feac 	bl	8000620 <HCSR04_InterruptHandler>
+	}
+}
  80008c8:	bf00      	nop
  80008ca:	3708      	adds	r7, #8
  80008cc:	46bd      	mov	sp, r7
@@ -783,10 +938,27 @@ Disassembly of section .text:
  80008d0:	20000028 	.word	0x20000028
 
 080008d4 <Error_Handler>:
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
  80008d4:	b480      	push	{r7}
  80008d6:	af00      	add	r7, sp, #0
+  \details Disables IRQ interrupts by setting the I-bit in the CPSR.
+           Can only be executed in Privileged modes.
+ */
+__STATIC_FORCEINLINE void __disable_irq(void)
+{
+  __ASM volatile ("cpsid i" : : : "memory");
  80008d8:	b672      	cpsid	i
+}
  80008da:	bf00      	nop
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
  80008dc:	bf00      	nop
  80008de:	e7fd      	b.n	80008dc <Error_Handler+0x8>
 

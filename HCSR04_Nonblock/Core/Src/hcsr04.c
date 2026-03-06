@@ -53,7 +53,7 @@ HCSR04_Status_t HCSR04_Init(HCSR04_t *hcsr04, TIM_HandleTypeDef *timer_trigger, 
 // Function calculating distance in centimeters (floating point)
 // Distance is calculated based on the echo time (Result_us) and the speed of sound constant
 // Result_us contains the measured echo time in microseconds
-HCSR04_Status_t HCSR04_GetDistanceFloat(HCSR04_t *hcsr04, float *Result){
+HCSR04_Status_t HCSR04_CalculateResultFloat(HCSR04_t *hcsr04, float *Result){
 
 	// Result in centimeters
 	*Result = (float)hcsr04->Result_us * HCSR04_CALCULATION_CONST;
